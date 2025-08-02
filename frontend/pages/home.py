@@ -21,8 +21,19 @@ def show_home_page():
     st.title("🎬 Movie Recommendation System")
     st.markdown("Discover and explore movies from our collection!")
     
-    # Get all movies
-    movies = movie_api.get_all_movies()
+    # Check backend connection
+    if not movie_api.test_connection():
+        st.error("⚠️ Cannot connect to the backend API. Please check your connection and try again.")
+        st.info("Backend URL: " + movie_api.base_url)
+        return
+    
+    # Get all movies with loading state
+    with st.spinner("Loading movies..."):
+        movies = movie_api.get_all_movies()
+    
+    if not movies:
+        st.warning("No movies found. The backend might be empty or there was an error loading data.")
+        return
     
     # Sidebar for filtering options
     with st.sidebar:
@@ -102,21 +113,36 @@ def show_home_page():
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            avg_rating = sum(m['rating'] for m in filtered_movies if m['rating']) / len([m for m in filtered_movies if m['rating']])
-            st.metric("Average Rating", f"{avg_rating:.1f}/10")
+            movies_with_rating = [m for m in filtered_movies if m['rating']]
+            if movies_with_rating:
+                avg_rating = sum(m['rating'] for m in movies_with_rating) / len(movies_with_rating)
+                st.metric("Average Rating", f"{avg_rating:.1f}/10")
+            else:
+                st.metric("Average Rating", "N/A")
         
         with col2:
-            year_range = f"{min(m['year'] for m in filtered_movies if m['year'])} - {max(m['year'] for m in filtered_movies if m['year'])}"
-            st.metric("Year Range", year_range)
+            movies_with_year = [m for m in filtered_movies if m['year']]
+            if movies_with_year:
+                year_range = f"{min(m['year'] for m in movies_with_year)} - {max(m['year'] for m in movies_with_year)}"
+                st.metric("Year Range", year_range)
+            else:
+                st.metric("Year Range", "N/A")
         
         with col3:
             genre_counts = {}
             for movie in filtered_movies:
                 genre = movie['genre']
                 genre_counts[genre] = genre_counts.get(genre, 0) + 1
-            most_common_genre = max(genre_counts.items(), key=lambda x: x[1])[0]
-            st.metric("Most Common Genre", most_common_genre)
+            if genre_counts:
+                most_common_genre = max(genre_counts.items(), key=lambda x: x[1])[0]
+                st.metric("Most Common Genre", most_common_genre)
+            else:
+                st.metric("Most Common Genre", "N/A")
         
         with col4:
-            top_rated = max(filtered_movies, key=lambda x: x['rating'] if x['rating'] else 0)
-            st.metric("Top Rated", top_rated['title'][:20] + "..." if len(top_rated['title']) > 20 else top_rated['title'])
+            movies_with_rating = [m for m in filtered_movies if m['rating']]
+            if movies_with_rating:
+                top_rated = max(movies_with_rating, key=lambda x: x['rating'])
+                st.metric("Top Rated", top_rated['title'][:20] + "..." if len(top_rated['title']) > 20 else top_rated['title'])
+            else:
+                st.metric("Top Rated", "N/A")
